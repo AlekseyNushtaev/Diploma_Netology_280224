@@ -3,15 +3,12 @@ from django.db import models
 STATE_CHOICES = (
     (1, 'Новый'),
     (2, 'Подтвержден'),
-    (3, 'Собран'),
-    (4, 'Отправлен'),
-    (5, 'Доставлен'),
-    (6, 'Отменен'),
+    (3, 'Отправлен'),
 )
 
 class User(models.Model):
-    name = models.CharField(verbose_name='Имя', max_length=40, blank=True)
-    surname = models.CharField(verbose_name='Фамилия', max_length=40, blank=True)
+    first_name = models.CharField(verbose_name='Имя', max_length=40, blank=True)
+    last_name = models.CharField(verbose_name='Фамилия', max_length=40, blank=True)
     password = models.CharField(verbose_name='Пароль', max_length=10)
     email = models.EmailField(verbose_name='E-mail', unique=True)
 
@@ -20,12 +17,12 @@ class User(models.Model):
         ordering = ('email',)
 
     def __str__(self):
-        return f'{self.name} {self.surname}'
+        return f'{self.first_name} {self.last_name}'
 
 
 class Shop(models.Model):
     name = models.CharField(max_length=30, verbose_name='Название магазина')
-    url = models.URLField(null=True, blank=True, verbose_name='Ссылка на прайс')
+    file = models.CharField(null=True, blank=True, verbose_name='Файл с прайсом')
 
     class Meta:
         verbose_name = 'Магазин'
@@ -37,7 +34,6 @@ class Shop(models.Model):
 
 class Category(models.Model):
     name = models.CharField(max_length=30, verbose_name='Название категории')
-    shops = models.ManyToManyField(Shop, verbose_name='Магазины', related_name='categories', blank=True)
 
     class Meta:
         verbose_name = 'Категория'
@@ -46,6 +42,15 @@ class Category(models.Model):
     def __str__(self):
         return self.name
 
+
+class ShopCategory(models.Model):
+    shop = models.ForeignKey(Shop, verbose_name='Магазин', related_name='shop_category', blank=True,
+                                on_delete=models.CASCADE)
+    category = models.ForeignKey(Category, verbose_name='Категория', related_name='category_shop', blank=True,
+                                on_delete=models.CASCADE)
+
+    class Meta:
+        verbose_name = 'Связь категорий и магазинов'
 
 class Product(models.Model):
     name = models.CharField(max_length=50, verbose_name='Название товара')
@@ -81,15 +86,17 @@ class Parameter(models.Model):
     def __str__(self):
         return self.name
 
+
 class ProductParameter(models.Model):
     product = models.ForeignKey(Product, verbose_name='Продукт', related_name='products', blank=True,
                                 on_delete=models.CASCADE)
-    parameter = models.ForeignKey(Product, verbose_name='Параметр', related_name='parameters', blank=True,
+    parameter = models.ForeignKey(Parameter, verbose_name='Параметр', related_name='parameters', blank=True,
                                 on_delete=models.CASCADE)
     value = models.CharField(verbose_name='Значение', max_length=50)
 
     class Meta:
         verbose_name = 'Параметр'
+
 
 class Contact(models.Model):
     user = models.ForeignKey(User, verbose_name='Пользователь', related_name='contacts', blank=True,
