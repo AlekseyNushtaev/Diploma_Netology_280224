@@ -110,6 +110,21 @@ AUTH_PASSWORD_VALIDATORS = [
 
 AUTH_USER_MODEL = 'backend.User'
 
+# smtp
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_USE_TLS = True
+
+EMAIL_HOST = 'smtp.mail.ru'
+
+EMAIL_HOST_USER = 'netologydiplomatest@mail.ru'
+EMAIL_HOST_PASSWORD = 'Wqtd9sYdYFUSfH8c5PjE'
+EMAIL_PORT = 465
+EMAIL_USE_SSL = True
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+SERVER_EMAIL = EMAIL_HOST_USER
+EMAIL_ADMIN = EMAIL_HOST_USER
+
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
 
@@ -132,9 +147,15 @@ REST_FRAMEWORK = {
 
         'rest_framework.authentication.TokenAuthentication',
     ),
-
 }
 
+DJOSER = {
+    'PASSWORD_RESET_CONFIRM_URL': '#/password/reset/confirm/{uid}/{token}',
+    'USERNAME_RESET_CONFIRM_URL': '#/username/reset/confirm/{uid}/{token}',
+    'ACTIVATION_URL': 'api/v1/request_activate/{uid}/{token}',
+    'SEND_ACTIVATION_EMAIL': True,
+    'SERIALIZERS': {},
+}
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 

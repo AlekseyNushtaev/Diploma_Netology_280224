@@ -1,17 +1,32 @@
 import json
 
+import requests
+from django.core.mail import send_mail
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from django.http import JsonResponse
 from requests import get
+from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 from yaml import load as load_yaml, Loader
 from django.shortcuts import render
 
 from backend.models import Shop, Category, ShopCategory, ProductInfo, Product, Parameter, ProductParameter
+from django.conf import settings
 
 
-class PartnerUpdate(APIView):
+@api_view(["GET"])
+def request_user_activation(request, uid, token):
+    """
+    Для активации аккаунта через GET-запрос (для нажатия ссылки в письме с подтверждением активации)
+    """
+    post_url = "http://127.0.0.1:8000/api/v1/auth/users/activation/"
+    post_data = {"uid": uid, "token": token}
+    result = requests.post(post_url, data=post_data)
+    return JsonResponse({'Status': 'User activated'})
+
+
+class PriceUpdate(APIView):
     """
     A class for updating partner information.
 
@@ -32,6 +47,7 @@ class PartnerUpdate(APIView):
                 Returns:
                 - JsonResponse: The response indicating the status of the operation and any errors.
                 """
+        send_mail('Test', 'Import done', settings.EMAIL_HOST_USER, ['nushtaev2110@gmail.com'])
         with open("data/shop1.json", encoding="utf-8") as f:
             data = json.load(f)
         shop = Shop.objects.filter(name=data["shop"])
