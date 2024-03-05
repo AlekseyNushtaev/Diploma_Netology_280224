@@ -1,4 +1,7 @@
+from django.contrib.auth.models import AbstractUser
 from django.db import models
+from backend.managers import UserManager
+
 
 STATE_CHOICES = (
     (1, 'Новый'),
@@ -6,14 +9,28 @@ STATE_CHOICES = (
     (3, 'Отправлен'),
 )
 
-class User(models.Model):
-    first_name = models.CharField(verbose_name='Имя', max_length=40, blank=True)
-    last_name = models.CharField(verbose_name='Фамилия', max_length=40, blank=True)
-    password = models.CharField(verbose_name='Пароль', max_length=10)
-    email = models.EmailField(verbose_name='E-mail', unique=True)
+TYPE_CHOICES = (
+    (1, 'Покупатель'),
+    (2, 'Магазин'),
+)
+
+class User(AbstractUser):
+    """
+    Настраиваемая модель пользователя
+    """
+    email = models.EmailField('email', unique=True)
+    first_name = models.CharField('Имя', max_length=30, blank=True)
+    last_name = models.CharField('Фамилия', max_length=30, blank=True)
+    type = models.CharField('Тип пользователя', choices=TYPE_CHOICES, default='Покупатель')
+    username = models.CharField('Username', max_length=150, blank=True)
+
+    objects = UserManager()
+
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['first_name', 'last_name']
 
     class Meta:
-        verbose_name = 'Пользователь'
+        verbose_name = ('Пользователь')
         ordering = ('email',)
 
     def __str__(self):
@@ -23,6 +40,10 @@ class User(models.Model):
 class Shop(models.Model):
     name = models.CharField(max_length=30, verbose_name='Название магазина')
     file = models.CharField(null=True, blank=True, verbose_name='Файл с прайсом')
+    user = models.OneToOneField(User, verbose_name='Пользователь',
+                                blank=True, null=True,
+                                on_delete=models.CASCADE)
+    is_active = models.BooleanField(verbose_name='статус получения заказов', default=True)
 
     class Meta:
         verbose_name = 'Магазин'
