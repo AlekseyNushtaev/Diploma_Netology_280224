@@ -9,9 +9,9 @@ STATE_CHOICES = (
     (3, 'Отправлен'),
 )
 
-TYPE_CHOICES = (
-    (1, 'Покупатель'),
-    (2, 'Магазин'),
+USER_TYPE_CHOICES = (
+    ('shop', 'Магазин'),
+    ('buyer', 'Покупатель'),
 )
 
 class User(AbstractUser):
@@ -21,13 +21,13 @@ class User(AbstractUser):
     email = models.EmailField('email', unique=True)
     first_name = models.CharField('Имя', max_length=30, blank=True)
     last_name = models.CharField('Фамилия', max_length=30, blank=True)
-    type = models.CharField('Тип пользователя', choices=TYPE_CHOICES, default='Покупатель')
+    type = models.CharField('Тип пользователя', choices=USER_TYPE_CHOICES, default='buyer')
     username = models.CharField('Username', max_length=150, blank=True)
 
     objects = UserManager()
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['first_name', 'last_name']
+    REQUIRED_FIELDS = ['type']
 
     class Meta:
         verbose_name = ('Пользователь')
