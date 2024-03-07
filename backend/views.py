@@ -3,19 +3,19 @@ import json
 import requests
 from django.core.mail import send_mail
 from django.core.exceptions import ValidationError
-from django.core.validators import URLValidator
+from django.db.models import Q
 from django.http import JsonResponse
 from requests import get
 from rest_framework.decorators import api_view
+from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from yaml import load as load_yaml, Loader
 from django.shortcuts import render
 
 from backend.models import Shop, Category, ShopCategory, ProductInfo, Product, Parameter, ProductParameter
 from django.conf import settings
 
-from backend.serializers import ShopSerializer
+from backend.serializers import ShopSerializer, ProductSerializer, ProductInfoSerializer, ProductSoloSerializer
 
 
 @api_view(["GET"])
@@ -34,7 +34,7 @@ class PriceUpdate(APIView):
     Класс для обновления прайса магазина
     """
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request):
         """
         Метод обновляет прайс магазина
         """
@@ -77,13 +77,13 @@ class PriceUpdate(APIView):
                                                       price=item["price"],
                                                       quantity=item['quantity'],
                                                       shop=shop)
-            for name, value in item['parameters'].items():
-                parameter = Parameter.objects.filter(name=name)
-                if not parameter:
-                    parameter = Parameter.objects.create(name=name)
-                else:
-                    parameter = parameter[0]
-                ProductParameter.objects.create(product=product,
+                for name, value in item['parameters'].items():
+                    parameter = Parameter.objects.filter(name=name)
+                    if not parameter:
+                        parameter = Parameter.objects.create(name=name)
+                    else:
+                        parameter = parameter[0]
+                    ProductParameter.objects.create(product=product,
                                                 parameter=parameter,
                                                 value=value)
             return JsonResponse({'Status': True})
@@ -91,7 +91,7 @@ class PriceUpdate(APIView):
 
 class ShopState(APIView):
     """
-    Класс для смены статуса магазина
+    Класс для действий со статусом магазина
     """
 
     def get(self, request, *args, **kwargs):
@@ -111,7 +111,7 @@ class ShopState(APIView):
         else:
             return JsonResponse({'Status': False, 'Error': 'Прайс не загружен'}, status=403)
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request):
         """
         Метод для изменения текущего статуса магазина
         """
@@ -130,4 +130,33 @@ class ShopState(APIView):
         else:
             return JsonResponse({'Status': False, 'Error': 'Прайс не загружен'}, status=403)
 
+
+class ProductView(ListAPIView):
+    """
+    Класс для получения списка товаров из активных магазинов
+    """
+
+    shops = Shop.objects.filter(is_active=True)
+    products = ProductInfo.objects.filter(shop__in=shops)
+    queryset = Product.objects.filter(product_info__in=products).distinct()
+    serializer_class = ProductSerializer
+
+
+class ProductInfoView(APIView):
+    """
+    Класс для поиска товара по id
+    # """
+    def get(self, product_id):
+        queryset = ProductInfo.objects.filter(product__id=product_id)
+        serializer = ProductInfoSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+class ProductSoloView(APIView):
+    """
+    Класс для поиска товара по id
+    """
+    def get(self, request, product_id):
+        query = Product.objects.filter(id=product_id).first()
+        serializer = ProductSoloSerializer(query)
+        return Response(serializer.data)
 # Create your views here.

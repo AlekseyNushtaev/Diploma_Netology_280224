@@ -109,7 +109,7 @@ class Parameter(models.Model):
 
 
 class ProductParameter(models.Model):
-    product = models.ForeignKey(Product, verbose_name='Продукт', related_name='products', blank=True,
+    product = models.ForeignKey(Product, verbose_name='Продукт', related_name='product_parameters', blank=True,
                                 on_delete=models.CASCADE)
     parameter = models.ForeignKey(Parameter, verbose_name='Параметр', related_name='parameters', blank=True,
                                 on_delete=models.CASCADE)
