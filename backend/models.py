@@ -3,9 +3,13 @@ from django.db import models
 from backend.managers import UserManager
 
 
-STATE_CHOICES = (
-    ('not accepted', 'Новый'),
+CLIENT_STATE_CHOICES = (
+    ('not accepted', 'Не подтвержден'),
     ('accepted', 'Подтвержден'),
+)
+
+SHOP_STATE_CHOICES = (
+    ('not sent', 'Не отправлен'),
     ('sent', 'Отправлен'),
 )
 
@@ -135,8 +139,8 @@ class Order(models.Model):
     user = models.ForeignKey(User, verbose_name='Пользователь', related_name='orders', blank=True,
                              on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
-    state = models.CharField(verbose_name='Статус', choices=STATE_CHOICES, max_length=15)
-    contact = models.OneToOneField(Contact, verbose_name='Контакт', related_name='order', blank=True, null=True, on_delete=models.CASCADE)
+    state = models.CharField(verbose_name='Статус', choices=CLIENT_STATE_CHOICES, max_length=15)
+    contact = models.OneToOneField(Contact, verbose_name='Контакт', related_name='order', blank=True, null=True, on_delete=models.DO_NOTHING)
 
     class Meta:
         verbose_name = 'Заказ'
@@ -152,6 +156,7 @@ class OrderItem(models.Model):
     product_info = models.ForeignKey(ProductInfo, verbose_name='Информация о продукте',
                                      related_name='ordered_items', blank=True, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(verbose_name='Количество')
+    state = models.CharField(verbose_name='Статус', choices=SHOP_STATE_CHOICES, default='not sent')
 
     class Meta:
         verbose_name = 'Заказанная позиция'

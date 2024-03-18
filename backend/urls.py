@@ -1,7 +1,7 @@
 from django.urls import path, include
 
 from backend.views import request_user_activation, PriceUpdate, ShopState, ProductView, ProductSoloView, OrderView, \
-    ContactView
+    ContactView, OrderShopView
 
 urlpatterns = [
     path('auth/', include('djoser.urls')),
@@ -13,5 +13,6 @@ urlpatterns = [
     path('product/<int:product_id>/', ProductSoloView.as_view(), name='product-solo-info'),
     path('order/', OrderView.as_view(), name='order'),
     path('contact/', ContactView.as_view(), name='contact'),
+    path('shop/order/', OrderShopView.as_view(), name='order_shop'),
 
 ]

@@ -2,29 +2,26 @@ import json
 
 import requests
 from django.core.mail import send_mail
-from django.core.exceptions import ValidationError, ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import IntegrityError
-from django.db.models import Q
 from django.http import JsonResponse
-from requests import get
 from rest_framework.decorators import api_view
-from rest_framework.generics import ListAPIView, RetrieveAPIView
+from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.shortcuts import render
 
-from backend.models import Shop, Category, ShopCategory, ProductInfo, Product, Parameter, ProductParameter, Order, \
-    Contact
-from django.conf import settings
+from backend.models import Shop, Category, ShopCategory, ProductInfo, Product, Parameter, \
+                            ProductParameter, Order, OrderItem
 
-from backend.serializers import ShopSerializer, ProductSerializer, ProductInfoSerializer, ProductSoloSerializer, \
+from backend.serializers import ShopSerializer, ProductSerializer, ProductSoloSerializer, \
     OrderItemSerializer, OrderSerializer, ContactSerializer
 
 
 @api_view(["GET"])
 def request_user_activation(request, uid, token):
     """
-    Метод для активации аккаунта через GET-запрос (для нажатия ссылки в письме с подтверждением активации)
+    Метод для активации аккаунта через GET-запрос
+    (для нажатия ссылки в письме с подтверждением активации)
     """
     post_url = "http://127.0.0.1:8000/api/v1/auth/users/activation/"
     post_data = {"uid": uid, "token": token}
@@ -348,15 +345,66 @@ class ContactView(APIView):
                 return JsonResponse({'Status': False, 'Errors': 'order_id - неверный формат данных'})
             try:
                 order = Order.objects.get(id=order_id, user=request.user)
+                orderitem_query = OrderItem.objects.filter(order=order, state='sent')
+                if orderitem_query:
+                    return JsonResponse({'Status': False, 'Errors': 'Позиция заказа уже отправлена магазином, изменить контакты нге возможно'})
                 if order.state == 'not accepted':
                     return JsonResponse({'Status': False, 'Errors': 'У заказа с order_id контактов нет'})
             except ObjectDoesNotExist:
                 return JsonResponse({'Status': False, 'Errors': 'У вас нет заказа с указанным id'})
-            Contact.objects.get(order=order).delete()
             order.state = 'not accepted'
             order.contact = None
             order.save()
             return JsonResponse({'Status': True})
         else:
             return JsonResponse({'Status': False, 'Errors': 'В запросе не указан order_id'})
+
+
+class OrderShopView(APIView):
+    """
+    Класс для упраления заказами магазина
+    """
+    def get(self, request):
+        """
+        Метод для получения всех подтвержденных заказов от клиентов
+        """
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+
+        if request.user.type != 'shop':
+            return JsonResponse({'Status': False, 'Error': 'Только для магазинов'}, status=403)
+
+        query = OrderItem.objects.filter(product_info__shop__user=request.user, order__state='accepted')
+        serializer = OrderItemSerializer(query, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        """
+        Метод для изменения статуса заказа (отправлен/не отправлен)
+        """
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+
+        if request.user.type != 'shop':
+            return JsonResponse({'Status': False, 'Error': 'Только для магазинов'}, status=403)
+
+        orderitem_id = request.data.get('orderitem_id')
+        if orderitem_id:
+            try:
+                orderitem_id = int(orderitem_id)
+            except TypeError:
+                return JsonResponse({'Status': False, 'Errors': 'orderitem_id - неверный формат данных'})
+            try:
+                orderitem = OrderItem.objects.get(id=orderitem_id, order__state='accepted')
+                if orderitem.state == "sent":
+                    orderitem.state = "not sent"
+                else:
+                    orderitem.state = "sent"
+                orderitem.save()
+                return JsonResponse({'Status': True, 'Статус заказа изменен на': orderitem.state})
+            except ObjectDoesNotExist:
+                JsonResponse({'Status': False, 'Errors': 'У вас нет подтвержденного заказа с указанным id'})
+        else:
+            return JsonResponse({'Status': False, 'Errors': 'В запросе не указан orderitem_id'})
+
 # Create your views here.
