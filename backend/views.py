@@ -2,7 +2,8 @@ import json
 
 import requests
 from django.core.mail import send_mail
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
+from django.db import IntegrityError
 from django.db.models import Q
 from django.http import JsonResponse
 from requests import get
@@ -12,10 +13,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import render
 
-from backend.models import Shop, Category, ShopCategory, ProductInfo, Product, Parameter, ProductParameter
+from backend.models import Shop, Category, ShopCategory, ProductInfo, Product, Parameter, ProductParameter, Order
 from django.conf import settings
 
-from backend.serializers import ShopSerializer, ProductSerializer, ProductInfoSerializer, ProductSoloSerializer
+from backend.serializers import ShopSerializer, ProductSerializer, ProductInfoSerializer, ProductSoloSerializer, \
+    OrderItemSerializer, OrderSerializer
 
 
 @api_view(["GET"])
@@ -87,7 +89,7 @@ class PriceUpdate(APIView):
                                                 parameter=parameter,
                                                 value=value)
             return JsonResponse({'Status': True})
-        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
+        return JsonResponse({'Status': False, 'Errors': 'Не указано имя файла для загрузки'})
 
 class ShopState(APIView):
     """
@@ -142,15 +144,6 @@ class ProductView(ListAPIView):
     serializer_class = ProductSerializer
 
 
-class ProductInfoView(APIView):
-    """
-    Класс для поиска товара по id
-    # """
-    def get(self, product_id):
-        queryset = ProductInfo.objects.filter(product__id=product_id)
-        serializer = ProductInfoSerializer(queryset, many=True)
-        return Response(serializer.data)
-
 class ProductSoloView(APIView):
     """
     Класс для поиска товара по id
@@ -159,4 +152,137 @@ class ProductSoloView(APIView):
         query = Product.objects.filter(id=product_id).first()
         serializer = ProductSoloSerializer(query)
         return Response(serializer.data)
+
+
+class OrderView(APIView):
+    """
+    Класс для работы с заказами клиента и магазина
+    """
+    def get(self, request):
+        """
+        Метод для просмотра всех заказов клиента
+        """
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+
+        if request.user.type != 'buyer':
+            return JsonResponse({'Status': False, 'Error': 'Только для клиентов'}, status=403)
+        query = Order.objects.filter(user=request.user)
+        serializer = OrderSerializer(query, many=True)
+        return Response(serializer.data)
+
+
+    def post(self, request):
+        """
+        Метод для создания заказа клиентом
+        """
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+
+        if request.user.type != 'buyer':
+            return JsonResponse({'Status': False, 'Error': 'Только для клиентов'}, status=403)
+
+        products = request.data.get('products')
+        if products:
+            try:
+                products_list = json.loads(products)
+            except ValueError:
+                return JsonResponse({'Status': False, 'Errors': 'products - неверный формат данных'})
+            order =Order.objects.create(user=request.user, state='new')
+            for product in products_list:
+                product['order'] = order.id
+                serializer = OrderItemSerializer(data=product)
+                if serializer.is_valid():
+                    shop = Shop.objects.get(product_info__id=product['product_info'])
+                    if shop.is_active:
+                        try:
+                            serializer.save()
+                        except IntegrityError as error:
+                            order.delete()
+                            return JsonResponse({'Status': False, 'Errors': str(error)})
+                    else:
+                        order.delete()
+                        return JsonResponse({'Status': False, 'Errors': 'Магазин отменил прием заказов'})
+                else:
+                    order.delete()
+                    return JsonResponse({'Status': False, 'Errors': serializer.errors})
+            return JsonResponse({'Status': True, 'Создан заказ с id:': order.id})
+        else:
+            return JsonResponse({'Status': False, 'Errors': 'В запросе отсутствует список товаров'})
+
+    def delete(self, request):
+        """
+        Метод для удаления заказа по id
+        """
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+
+        if request.user.type != 'buyer':
+            return JsonResponse({'Status': False, 'Error': 'Только для клиентов'}, status=403)
+        order_id = request.data.get('order_id')
+        if order_id:
+            try:
+                order_id = int(order_id)
+            except TypeError:
+                return JsonResponse({'Status': False, 'Errors': 'order_id - неверный формат данных'})
+            try:
+                Order.objects.get(id=order_id, user=request.user).delete()
+            except ObjectDoesNotExist:
+                return JsonResponse({'Status': False, 'Errors': 'У вас нет заказа с указанным id'})
+            return JsonResponse({'Status': True, 'Удален заказ под номером': order_id})
+        else:
+            return JsonResponse({'Status': False, 'Errors': 'В запросе не указан order_id'})
+
+    def patch(self, request):
+        """
+        Метод для добавления товаров в заказ
+        """
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+
+        if request.user.type != 'buyer':
+            return JsonResponse({'Status': False, 'Error': 'Только для клиентов'}, status=403)
+        order_id = request.data.get('order_id')
+        if order_id:
+            try:
+                order_id = int(order_id)
+            except TypeError:
+                return JsonResponse({'Status': False, 'Errors': 'order_id - неверный формат данных'})
+            try:
+                order = Order.objects.get(id=order_id, user=request.user)
+            except ObjectDoesNotExist:
+                return JsonResponse({'Status': False, 'Errors': 'У вас нет заказа с указанным id'})
+            products = request.data.get('products')
+            if products:
+                try:
+                    products_list = json.loads(products)
+                except ValueError:
+                    return JsonResponse({'Status': False, 'Errors': 'products - неверный формат данных'})
+                for product in products_list:
+                    product['order'] = order.id
+                    serializer = OrderItemSerializer(data=product)
+                    if serializer.is_valid():
+                        shop = Shop.objects.get(product_info__id=product['product_info'])
+                        if shop.is_active:
+                            try:
+                                serializer.save()
+                            except IntegrityError as error:
+                                return JsonResponse({'Status': False, 'Errors': str(error)})
+                        else:
+                            return JsonResponse({'Status': False, 'Errors': 'Магазин отменил прием заказов'})
+                    else:
+                        return JsonResponse({'Status': False, 'Errors': serializer.errors})
+                return JsonResponse({'Status': True, 'Товары добавлены в заказ с id:': order.id})
+            else:
+                return JsonResponse({'Status': False, 'Errors': 'В запросе отсутствует список товаров'})
+        else:
+            return JsonResponse({'Status': False, 'Errors': 'В запросе не указан order_id'})
+
+
+class OrderView(APIView):
+    """
+    Класс для работы с контактами клиента
+    """
+    def post(self, request):
+
 # Create your views here.

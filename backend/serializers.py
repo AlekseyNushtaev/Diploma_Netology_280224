@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from backend.models import Shop, Product, Category, ProductInfo, ProductParameter
+from backend.models import Shop, Product, Category, ProductInfo, ProductParameter, OrderItem, Order
 
 
 class ShopSerializer(serializers.ModelSerializer):
@@ -28,7 +28,7 @@ class ProductInfoSerializer(serializers.ModelSerializer):
     shop_id = serializers.CharField(source='shop.id')
     class Meta:
         model = ProductInfo
-        fields = ('shop', 'shop_id', 'price', 'quantity')
+        fields = ('id', 'shop', 'shop_id', 'price', 'quantity')
 
 
 class ProductSoloSerializer(serializers.ModelSerializer):
@@ -49,3 +49,17 @@ class ProductSoloSerializer(serializers.ModelSerializer):
         serialized_product_info = ProductInfoSerializer(filtered_product_info_qs, many=True).data
 
         return serialized_product_info
+
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderItem
+        fields = ('id', 'product_info', 'quantity', 'order')
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    order_items = OrderItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Order
+        fields = ('id', 'order_items', 'state', 'created_at', 'contact',)

@@ -4,9 +4,9 @@ from backend.managers import UserManager
 
 
 STATE_CHOICES = (
-    (1, 'Новый'),
-    (2, 'Подтвержден'),
-    (3, 'Отправлен'),
+    ('new', 'Новый'),
+    ('accepted', 'Подтвержден'),
+    ('sent', 'Отправлен'),
 )
 
 USER_TYPE_CHOICES = (
@@ -148,7 +148,7 @@ class Order(models.Model):
 
 
 class OrderItem(models.Model):
-    order = models.ForeignKey(Order, verbose_name='Заказ', related_name='ordered_items', blank=True,
+    order = models.ForeignKey(Order, verbose_name='Заказ', related_name='order_items', blank=True,
                               on_delete=models.CASCADE)
     product_info = models.ForeignKey(ProductInfo, verbose_name='Информация о продукте',
                                      related_name='ordered_items', blank=True, on_delete=models.CASCADE)
