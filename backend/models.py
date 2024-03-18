@@ -4,7 +4,7 @@ from backend.managers import UserManager
 
 
 STATE_CHOICES = (
-    ('new', 'Новый'),
+    ('not accepted', 'Новый'),
     ('accepted', 'Подтвержден'),
     ('sent', 'Отправлен'),
 )
@@ -122,8 +122,8 @@ class ProductParameter(models.Model):
 class Contact(models.Model):
     user = models.ForeignKey(User, verbose_name='Пользователь', related_name='contacts', blank=True,
                              on_delete=models.CASCADE)
-    adress = models.CharField(verbose_name='Адрес', max_length=100, blank=True)
-    phone = models.CharField(verbose_name='Телефон', max_length=30, blank=True)
+    adress = models.CharField(verbose_name='Адрес', max_length=100)
+    phone = models.CharField(verbose_name='Телефон', max_length=30)
 
     class Meta:
         verbose_name = 'Контакт'
@@ -136,8 +136,7 @@ class Order(models.Model):
                              on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     state = models.CharField(verbose_name='Статус', choices=STATE_CHOICES, max_length=15)
-    contact = models.ForeignKey(Contact, verbose_name='Контакт', blank=True, null=True,
-                                on_delete=models.CASCADE)
+    contact = models.OneToOneField(Contact, verbose_name='Контакт', related_name='order', blank=True, null=True, on_delete=models.CASCADE)
 
     class Meta:
         verbose_name = 'Заказ'

@@ -13,11 +13,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import render
 
-from backend.models import Shop, Category, ShopCategory, ProductInfo, Product, Parameter, ProductParameter, Order
+from backend.models import Shop, Category, ShopCategory, ProductInfo, Product, Parameter, ProductParameter, Order, \
+    Contact
 from django.conf import settings
 
 from backend.serializers import ShopSerializer, ProductSerializer, ProductInfoSerializer, ProductSoloSerializer, \
-    OrderItemSerializer, OrderSerializer
+    OrderItemSerializer, OrderSerializer, ContactSerializer
 
 
 @api_view(["GET"])
@@ -188,7 +189,7 @@ class OrderView(APIView):
                 products_list = json.loads(products)
             except ValueError:
                 return JsonResponse({'Status': False, 'Errors': 'products - неверный формат данных'})
-            order =Order.objects.create(user=request.user, state='new')
+            order =Order.objects.create(user=request.user, state='not accepted')
             for product in products_list:
                 product['order'] = order.id
                 serializer = OrderItemSerializer(data=product)
@@ -279,10 +280,83 @@ class OrderView(APIView):
             return JsonResponse({'Status': False, 'Errors': 'В запросе не указан order_id'})
 
 
-class OrderView(APIView):
+class ContactView(APIView):
     """
     Класс для работы с контактами клиента
     """
     def post(self, request):
+        """
+        Метод для добавления контактов к заказу
+        """
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
+        if request.user.type != 'buyer':
+            return JsonResponse({'Status': False, 'Error': 'Только для клиентов'}, status=403)
+
+        order_id = request.data.get('order_id')
+        if order_id:
+            try:
+                order_id = int(order_id)
+            except TypeError:
+                return JsonResponse({'Status': False, 'Errors': 'order_id - неверный формат данных'})
+            try:
+                order = Order.objects.get(id=order_id, user=request.user)
+                if order.state == 'accepted':
+                    return JsonResponse({'Status': False, 'Errors': 'У заказа с order_id контакты определены'})
+            except ObjectDoesNotExist:
+                return JsonResponse({'Status': False, 'Errors': 'У вас нет заказа с указанным id'})
+            contact = request.data.get('contact')
+            if contact:
+                try:
+                    contact_dict = json.loads(contact)
+                except ValueError:
+                    return JsonResponse({'Status': False, 'Errors': 'contact - неверный формат данных'})
+                contact_dict['user'] = request.user.id
+                serializer = ContactSerializer(data=contact_dict)
+                if serializer.is_valid():
+                    try:
+                        obj = serializer.save()
+                    except IntegrityError as error:
+                        return JsonResponse({'Status': False, 'Errors': str(error)})
+                    order.state = 'accepted'
+                    order.contact = obj
+                    order.save()
+                    return JsonResponse({'Status': True, 'Контакт добавлен': 'Заказ подтвержден'})
+                else:
+                    return JsonResponse({'Status': False, 'Errors': serializer.errors})
+            else:
+                return JsonResponse({'Status': False, 'Errors': 'В запросе не указан contact'})
+        else:
+            return JsonResponse({'Status': False, 'Errors': 'В запросе не указан order_id'})
+
+    def delete(self, request):
+        """
+        Метод для удаления контакта из заказа
+        """
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+
+        if request.user.type != 'buyer':
+            return JsonResponse({'Status': False, 'Error': 'Только для клиентов'}, status=403)
+
+        order_id = request.data.get('order_id')
+        if order_id:
+            try:
+                order_id = int(order_id)
+            except TypeError:
+                return JsonResponse({'Status': False, 'Errors': 'order_id - неверный формат данных'})
+            try:
+                order = Order.objects.get(id=order_id, user=request.user)
+                if order.state == 'not accepted':
+                    return JsonResponse({'Status': False, 'Errors': 'У заказа с order_id контактов нет'})
+            except ObjectDoesNotExist:
+                return JsonResponse({'Status': False, 'Errors': 'У вас нет заказа с указанным id'})
+            Contact.objects.get(order=order).delete()
+            order.state = 'not accepted'
+            order.contact = None
+            order.save()
+            return JsonResponse({'Status': True})
+        else:
+            return JsonResponse({'Status': False, 'Errors': 'В запросе не указан order_id'})
 # Create your views here.
