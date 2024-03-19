@@ -18,6 +18,7 @@ USER_TYPE_CHOICES = (
     ('buyer', 'Покупатель'),
 )
 
+
 class User(AbstractUser):
     """
     Настраиваемая модель пользователя
@@ -25,7 +26,9 @@ class User(AbstractUser):
     email = models.EmailField('email', unique=True)
     first_name = models.CharField('Имя', max_length=30, blank=True)
     last_name = models.CharField('Фамилия', max_length=30, blank=True)
-    type = models.CharField('Тип пользователя', choices=USER_TYPE_CHOICES, default='buyer')
+    type = models.CharField('Тип пользователя',
+                            choices=USER_TYPE_CHOICES,
+                            default='buyer')
     username = models.CharField('Username', max_length=150, blank=True)
 
     objects = UserManager()
@@ -43,11 +46,16 @@ class User(AbstractUser):
 
 class Shop(models.Model):
     name = models.CharField(max_length=30, verbose_name='Название магазина')
-    file = models.CharField(null=True, blank=True, verbose_name='Файл с прайсом')
-    user = models.OneToOneField(User, verbose_name='Пользователь',
-                                blank=True, null=True,
+    file = models.CharField(null=True,
+                            blank=True,
+                            verbose_name='Файл с прайсом')
+    user = models.OneToOneField(User,
+                                verbose_name='Пользователь',
+                                blank=True,
+                                null=True,
                                 on_delete=models.CASCADE)
-    is_active = models.BooleanField(verbose_name='статус получения заказов', default=True)
+    is_active = models.BooleanField(verbose_name='статус получения заказов',
+                                    default=True)
 
     class Meta:
         verbose_name = 'Магазин'
@@ -69,17 +77,26 @@ class Category(models.Model):
 
 
 class ShopCategory(models.Model):
-    shop = models.ForeignKey(Shop, verbose_name='Магазин', related_name='shop_category', blank=True,
-                                on_delete=models.CASCADE)
-    category = models.ForeignKey(Category, verbose_name='Категория', related_name='category_shop', blank=True,
-                                on_delete=models.CASCADE)
+    shop = models.ForeignKey(Shop, verbose_name='Магазин',
+                             related_name='shop_category',
+                             blank=True,
+                             on_delete=models.CASCADE)
+    category = models.ForeignKey(Category,
+                                 verbose_name='Категория',
+                                 related_name='category_shop',
+                                 blank=True,
+                                 on_delete=models.CASCADE)
 
     class Meta:
         verbose_name = 'Связь категорий и магазинов'
 
+
 class Product(models.Model):
     name = models.CharField(max_length=50, verbose_name='Название товара')
-    category = models.ForeignKey(Category, verbose_name='Категория', related_name='products', blank=True,
+    category = models.ForeignKey(Category,
+                                 verbose_name='Категория',
+                                 related_name='products',
+                                 blank=True,
                                  on_delete=models.CASCADE)
 
     class Meta:
@@ -89,10 +106,16 @@ class Product(models.Model):
     def __str__(self):
         return self.name
 
+
 class ProductInfo(models.Model):
-    product = models.ForeignKey(Product, verbose_name='Продукт', related_name='product_info', blank=True,
+    product = models.ForeignKey(Product,
+                                verbose_name='Продукт',
+                                related_name='product_info',
+                                blank=True,
                                 on_delete=models.CASCADE)
-    shop = models.ForeignKey(Shop, verbose_name='Магазин', related_name='product_info', blank=True,
+    shop = models.ForeignKey(Shop, verbose_name='Магазин',
+                             related_name='product_info',
+                             blank=True,
                              on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(verbose_name='Количество')
     price = models.PositiveIntegerField(verbose_name='Цена')
@@ -102,7 +125,8 @@ class ProductInfo(models.Model):
 
 
 class Parameter(models.Model):
-    name = models.CharField(max_length=30, verbose_name='Наименование параметра товара')
+    name = models.CharField(max_length=30,
+                            verbose_name='Наименование параметра товара')
 
     class Meta:
         verbose_name = 'Имя параметра'
@@ -113,10 +137,16 @@ class Parameter(models.Model):
 
 
 class ProductParameter(models.Model):
-    product = models.ForeignKey(Product, verbose_name='Продукт', related_name='product_parameters', blank=True,
+    product = models.ForeignKey(Product,
+                                verbose_name='Продукт',
+                                related_name='product_parameters',
+                                blank=True,
                                 on_delete=models.CASCADE)
-    parameter = models.ForeignKey(Parameter, verbose_name='Параметр', related_name='parameters', blank=True,
-                                on_delete=models.CASCADE)
+    parameter = models.ForeignKey(Parameter,
+                                  verbose_name='Параметр',
+                                  related_name='parameters',
+                                  blank=True,
+                                  on_delete=models.CASCADE)
     value = models.CharField(verbose_name='Значение', max_length=50)
 
     class Meta:
@@ -124,7 +154,10 @@ class ProductParameter(models.Model):
 
 
 class Contact(models.Model):
-    user = models.ForeignKey(User, verbose_name='Пользователь', related_name='contacts', blank=True,
+    user = models.ForeignKey(User,
+                             verbose_name='Пользователь',
+                             related_name='contacts',
+                             blank=True,
                              on_delete=models.CASCADE)
     adress = models.CharField(verbose_name='Адрес', max_length=100)
     phone = models.CharField(verbose_name='Телефон', max_length=30)
@@ -135,12 +168,22 @@ class Contact(models.Model):
     def __str__(self):
         return self.phone
 
+
 class Order(models.Model):
-    user = models.ForeignKey(User, verbose_name='Пользователь', related_name='orders', blank=True,
+    user = models.ForeignKey(User,
+                             verbose_name='Пользователь',
+                             related_name='orders',
+                             blank=True,
                              on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
-    state = models.CharField(verbose_name='Статус', choices=CLIENT_STATE_CHOICES, max_length=15)
-    contact = models.OneToOneField(Contact, verbose_name='Контакт', related_name='order', blank=True, null=True, on_delete=models.DO_NOTHING)
+    state = models.CharField(verbose_name='Статус',
+                             choices=CLIENT_STATE_CHOICES,
+                             max_length=15)
+    contact = models.OneToOneField(Contact,
+                                   verbose_name='Контакт',
+                                   related_name='order', blank=True,
+                                   null=True,
+                                   on_delete=models.DO_NOTHING)
 
     class Meta:
         verbose_name = 'Заказ'
@@ -151,12 +194,20 @@ class Order(models.Model):
 
 
 class OrderItem(models.Model):
-    order = models.ForeignKey(Order, verbose_name='Заказ', related_name='order_items', blank=True,
+    order = models.ForeignKey(Order,
+                              verbose_name='Заказ',
+                              related_name='order_items',
+                              blank=True,
                               on_delete=models.CASCADE)
-    product_info = models.ForeignKey(ProductInfo, verbose_name='Информация о продукте',
-                                     related_name='ordered_items', blank=True, on_delete=models.CASCADE)
+    product_info = models.ForeignKey(ProductInfo,
+                                     verbose_name='Информация о продукте',
+                                     related_name='ordered_items',
+                                     blank=True,
+                                     on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(verbose_name='Количество')
-    state = models.CharField(verbose_name='Статус', choices=SHOP_STATE_CHOICES, default='not sent')
+    state = models.CharField(verbose_name='Статус',
+                             choices=SHOP_STATE_CHOICES,
+                             default='not sent')
 
     class Meta:
         verbose_name = 'Заказанная позиция'
