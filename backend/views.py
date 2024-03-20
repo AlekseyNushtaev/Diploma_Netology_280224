@@ -1,7 +1,6 @@
 import json
 
 import requests
-from django.core.mail import send_mail
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import IntegrityError
 from django.http import JsonResponse
@@ -16,6 +15,7 @@ from backend.models import (Shop, Category, ShopCategory, ProductInfo, Product,
 from backend.serializers import (ShopSerializer, ProductSerializer,
                                  ProductSoloSerializer, OrderItemSerializer,
                                  OrderSerializer, ContactSerializer)
+from backend.signals import mail
 
 
 def chek_auth(request, type):
@@ -252,6 +252,10 @@ class OrderView(APIView):
                 return JsonResponse(
                     {'Status': False,
                      'Errors': 'У вас нет заказа с указанным id'})
+            if order.contact:
+                return JsonResponse(
+                    {'Status': False,
+                     'Errors': 'Заказ подтвержден, добавлять товары нельзя'})
             products = request.data.get('products')
             if products:
                 try:
@@ -339,6 +343,11 @@ class ContactView(APIView):
                     order.state = 'accepted'
                     order.contact = obj
                     order.save()
+                    for orderitem in OrderItem.objects.filter(order=order):
+                        mail(subj='Новый заказ',
+                             msg=f'Покупатель: {orderitem.order.user.email}',
+                             mail_to=orderitem.product_info.shop.user.email,
+                             orderitem=orderitem)
                     return JsonResponse(
                         {'Status': True,
                          'Контакт добавлен': 'Заказ подтвержден'})
@@ -388,6 +397,11 @@ class ContactView(APIView):
             order.state = 'not accepted'
             order.contact = None
             order.save()
+            for orderitem in OrderItem.objects.filter(order=order):
+                mail(subj='Покупатель сменил статус заказа на неактивный',
+                     msg=f'Покупатель: {orderitem.order.user.email}',
+                     mail_to=orderitem.product_info.shop.user.email,
+                     orderitem=orderitem)
             return JsonResponse({'Status': True})
         else:
             return JsonResponse(
@@ -412,7 +426,7 @@ class OrderShopView(APIView):
 
     def post(self, request):
         """
-        Метод для изменения статуса заказа (отправлен/не отправлен)
+        Метод для изменения статуса заказа
         """
         chek_auth(request, 'shop')
 
@@ -428,13 +442,19 @@ class OrderShopView(APIView):
                 orderitem = OrderItem.objects.get(id=orderitem_id,
                                                   order__state='accepted')
                 if orderitem.state == "sent":
-                    orderitem.state = "not sent"
+                    return JsonResponse(
+                        {'Status': False,
+                         'Errors': 'Товар уже отпрален покупателю'})
                 else:
                     orderitem.state = "sent"
-                orderitem.save()
-                return JsonResponse(
-                    {'Status': True,
-                     'Статус заказа изменен на': orderitem.state})
+                    orderitem.save()
+                    mail(subj='Магазин отправил товар',
+                         msg=f'Магазин: {orderitem.product_info.shop.name}',
+                         mail_to=orderitem.order.user.email,
+                         orderitem=orderitem)
+                    return JsonResponse(
+                        {'Status': True,
+                         'Статус заказа изменен на': orderitem.state})
             except ObjectDoesNotExist:
                 JsonResponse(
                     {'Status': False,
