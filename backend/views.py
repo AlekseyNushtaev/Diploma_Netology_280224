@@ -76,18 +76,21 @@ class PriceUpdate(APIView):
                 shop_category, _ = (ShopCategory.objects.get_or_create
                                     (shop=shop, category=category))
             for item in data['products']:
-                product, _ = (Product.objects.get_or_create
-                              (name=item['name'],
-                               category__name=item['category']))
+                category, _ = Category.objects.get_or_create(
+                    name=item['category'])
+                product, _ = Product.objects.get_or_create(
+                    name=item['name'],
+                    category=category)
                 ProductInfo.objects.create(product=product,
                                            price=item['price'],
                                            quantity=item['quantity'],
                                            shop=shop)
                 for name, value in item['parameters'].items():
                     parameter, _ = Parameter.objects.get_or_create(name=name)
-                    ProductParameter.objects.create(product=product,
-                                                    parameter=parameter,
-                                                    value=value)
+                    pp, _ = ProductParameter.objects.get_or_create(
+                        product=product,
+                        parameter=parameter,
+                        value=value)
             return JsonResponse({'Status': True})
         return JsonResponse({'Status': False,
                              'Errors': 'Не указан файл для загрузки'})
