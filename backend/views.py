@@ -15,7 +15,7 @@ from backend.models import (Shop, Category, ShopCategory, ProductInfo, Product,
 from backend.serializers import (ShopSerializer, ProductSerializer,
                                  ProductSoloSerializer, OrderItemSerializer,
                                  OrderSerializer, ContactSerializer)
-from backend.signals import mail
+from backend.tasks import mail
 
 
 def chek_auth(request, type):
@@ -347,10 +347,17 @@ class ContactView(APIView):
                     order.contact = obj
                     order.save()
                     for orderitem in OrderItem.objects.filter(order=order):
-                        mail(subj='Новый заказ',
-                             msg=f'Покупатель: {orderitem.order.user.email}',
-                             mail_to=orderitem.product_info.shop.user.email,
-                             orderitem=orderitem)
+                        mail.delay(subj='Новый заказ',
+                                   msg=f'Покупатель: '
+                                       f'{orderitem.order.user.email}',
+                                   mail_to=orderitem.product_info.
+                                   shop.user.email,
+                                   id_order=orderitem.order.pk,
+                                   id_orderitem=orderitem.pk,
+                                   product=orderitem.product_info.product.name,
+                                   quantity=orderitem.quantity,
+                                   adress=orderitem.order.contact.adress,
+                                   phone=orderitem.order.contact.phone)
                     return JsonResponse(
                         {'Status': True,
                          'Контакт добавлен': 'Заказ подтвержден'})
@@ -401,10 +408,13 @@ class ContactView(APIView):
             order.contact = None
             order.save()
             for orderitem in OrderItem.objects.filter(order=order):
-                mail(subj='Покупатель сменил статус заказа на неактивный',
-                     msg=f'Покупатель: {orderitem.order.user.email}',
-                     mail_to=orderitem.product_info.shop.user.email,
-                     orderitem=orderitem)
+                mail.delay(subj='Покупатель сменил статус заказа',
+                           msg=f'Покупатель: {orderitem.order.user.email}',
+                           mail_to=orderitem.product_info.shop.user.email,
+                           id_order=orderitem.order.pk,
+                           id_orderitem=orderitem.pk,
+                           product=orderitem.product_info.product.name,
+                           quantity=orderitem.quantity)
             return JsonResponse({'Status': True})
         else:
             return JsonResponse(
@@ -451,10 +461,17 @@ class OrderShopView(APIView):
                 else:
                     orderitem.state = "sent"
                     orderitem.save()
-                    mail(subj='Магазин отправил товар',
-                         msg=f'Магазин: {orderitem.product_info.shop.name}',
-                         mail_to=orderitem.order.user.email,
-                         orderitem=orderitem)
+                    mail.delay(subj='Магазин отправил товар',
+                               msg=f'Магазин: '
+                                   f'{orderitem.product_info.shop.name}',
+                               mail_to=orderitem.order.user.email,
+                               id_order=orderitem.order.pk,
+                               id_orderitem=orderitem.pk,
+                               product=orderitem.product_info.product.name,
+                               quantity=orderitem.quantity,
+                               adress=orderitem.order.contact.adress,
+                               phone=orderitem.order.contact.phone
+                               )
                     return JsonResponse(
                         {'Status': True,
                          'Статус заказа изменен на': orderitem.state})
